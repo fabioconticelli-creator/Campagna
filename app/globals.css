@@ -1,0 +1,14 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0e0b14;
+  color: #e8e0f0;
+  font-family: Georgia, serif;
+}
+
+button, input, textarea {
+  font-family: inherit;
+}
