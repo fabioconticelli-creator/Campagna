@@ -23,9 +23,9 @@ const menu = [
   ['oracle','Oracolo']
 ]
 
-const emptyNpc = { name:'', role:'', attitude:'ALLEATO', status:'VIVO', faction:'', image_url:'', description:'' }
-const emptyFaction = { name:'', icon:'⚔️', description:'', influence:0 }
-const emptySimple = { title:'', date:'', session_number:'', summary:'', name:'', description:'', image_url:'' }
+const emptyNpc = { id:null, name:'', role:'', attitude:'ALLEATO', status:'VIVO', faction:'', image_url:'', description:'' }
+const emptyFaction = { id:null, name:'', icon:'⚔️', description:'', influence:0 }
+const emptySimple = { id:null, title:'', date:'', session_number:'', summary:'', name:'', description:'', image_url:'' }
 
 const inputStyle = {
   width:'100%', marginBottom:14, background:C.bg, color:C.text,
@@ -62,7 +62,7 @@ function Card({children,style={}}){
   }}>{children}</div>
 }
 
-function Modal({title,onClose,children,onSave}){
+function Modal({title,onClose,children,onSave,saveLabel='Salva'}){
   return <div style={{
     position:'fixed', inset:0, background:'rgba(0,0,0,.78)',
     zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', padding:20
@@ -79,7 +79,9 @@ function Modal({title,onClose,children,onSave}){
         <h2 style={{margin:0,color:C.red,fontSize:24}}>{title}</h2>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.dim,fontSize:28,cursor:'pointer'}}>×</button>
       </div>
+
       <div style={{padding:26}}>{children}</div>
+
       <div style={{
         padding:'18px 26px', borderTop:`1px solid ${C.border}`,
         display:'flex', justifyContent:'flex-end', gap:12
@@ -88,13 +90,24 @@ function Modal({title,onClose,children,onSave}){
           padding:'12px 22px', borderRadius:12, background:'transparent',
           border:`1px solid ${C.border2}`, color:C.dim, fontWeight:700, cursor:'pointer'
         }}>Annulla</button>
+
         <button onClick={onSave} style={{
           padding:'12px 24px', borderRadius:12, background:C.red,
           border:'none', color:'#fff', fontWeight:800, cursor:'pointer'
-        }}>Salva</button>
+        }}>{saveLabel}</button>
       </div>
     </div>
   </div>
+}
+
+function ConfirmModal({onClose,onConfirm,label}){
+  return <Modal title="Sei sicuro?" onClose={onClose} onSave={onConfirm} saveLabel="Sì, elimina">
+    <p style={{color:C.dim,lineHeight:1.7,marginTop:0}}>
+      Stai per eliminare <strong style={{color:C.text}}>{label}</strong>.
+      <br />
+      Questa azione non può essere annullata.
+    </p>
+  </Modal>
 }
 
 function Sidebar({tab,setTab,open,setOpen}){
@@ -156,7 +169,39 @@ function HeaderBar({title,onAdd,canAdd=true}){
   </div>
 }
 
-function NpcList({npcs,factions,onAdd}){
+function ActionButtons({onEdit,onDelete}){
+  if(!IS_DM) return null
+
+  return <div style={{display:'flex',gap:8,marginTop:14}}>
+    <button onClick={onEdit} style={{
+      flex:1,
+      background:'transparent',
+      border:`1px solid ${C.border2}`,
+      color:C.dim,
+      borderRadius:10,
+      padding:'9px 12px',
+      fontWeight:700,
+      cursor:'pointer'
+    }}>
+      ✏️ Modifica
+    </button>
+
+    <button onClick={onDelete} style={{
+      flex:1,
+      background:C.red,
+      border:'none',
+      color:'#fff',
+      borderRadius:10,
+      padding:'9px 12px',
+      fontWeight:800,
+      cursor:'pointer'
+    }}>
+      🗑️ Elimina
+    </button>
+  </div>
+}
+
+function NpcList({npcs,factions,onAdd,onEdit,onDelete}){
   const [search,setSearch]=useState('')
   const [filter,setFilter]=useState('Tutti')
   const factionNames = ['Tutti',...factions.map(f=>f.name)]
@@ -210,12 +255,17 @@ function NpcList({npcs,factions,onAdd}){
                 {n.image_url ? <img src={n.image_url} alt={n.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <span style={{fontSize:30}}>👤</span>}
               </div>
 
-              <div>
+              <div style={{flex:1}}>
                 <h3 style={{margin:'0 0 6px',fontSize:25,color:C.text}}>{n.name}</h3>
                 <div style={{color:C.dim,fontSize:18,marginBottom:4}}>{n.role || 'Ruolo ignoto'}</div>
                 <Tag type={n.attitude==='NEMICO'?'red':n.attitude==='NEUTRALE'?'yellow':'green'}>{n.attitude || 'SCONOSCIUTO'}</Tag>
                 <Tag type={n.status==='MORTO'?'red':'green'}>{n.status || 'VIVO'}</Tag>
                 {n.faction && <Tag type="yellow">{n.faction}</Tag>}
+
+                <ActionButtons
+                  onEdit={()=>onEdit(n)}
+                  onDelete={()=>onDelete('npcs',n.id,n.name)}
+                />
               </div>
             </div>
           ))}
@@ -227,7 +277,7 @@ function NpcList({npcs,factions,onAdd}){
   </>
 }
 
-function FactionList({factions,onAdd}){
+function FactionList({factions,onAdd,onEdit,onDelete}){
   return <>
     <HeaderBar title="Fazioni" onAdd={onAdd} />
     <div style={{display:'grid',gap:14}}>
@@ -239,6 +289,11 @@ function FactionList({factions,onAdd}){
               <h3 style={{margin:'0 0 4px',color:C.text,fontSize:24}}>{f.name}</h3>
               <div style={{color:C.dim,lineHeight:1.6}}>{f.description}</div>
               <div style={{marginTop:10,color:C.yellow,fontWeight:800}}>Influenza: {f.influence || 0}%</div>
+
+              <ActionButtons
+                onEdit={()=>onEdit(f)}
+                onDelete={()=>onDelete('factions',f.id,f.name)}
+              />
             </div>
           </div>
         </Card>
@@ -248,7 +303,7 @@ function FactionList({factions,onAdd}){
   </>
 }
 
-function SimpleArchive({title,items,onAdd,type}){
+function SimpleArchive({title,items,onAdd,type,onEdit,onDelete}){
   return <>
     <HeaderBar title={title} onAdd={onAdd} />
     <div style={{display:'grid',gap:14}}>
@@ -260,6 +315,11 @@ function SimpleArchive({title,items,onAdd,type}){
           </h3>
           {i.date && <div style={{color:C.purple2,marginBottom:8}}>{i.date}</div>}
           <div style={{color:C.dim,lineHeight:1.7,whiteSpace:'pre-wrap'}}>{i.summary || i.description}</div>
+
+          <ActionButtons
+            onEdit={()=>onEdit(i)}
+            onDelete={()=>onDelete(type,i.id,i.title || i.name)}
+          />
         </Card>
       ))}
       {items.length===0 && <Card><div style={{color:C.muted}}>Nessun elemento salvato.</div></Card>}
@@ -316,6 +376,7 @@ export default function HomePage(){
   const [sidebarOpen,setSidebarOpen]=useState(false)
   const [data,setData]=useState({sessions:[],chronicles:[],npcs:[],factions:[],locations:[]})
   const [modal,setModal]=useState(null)
+  const [deleteTarget,setDeleteTarget]=useState(null)
   const [npc,setNpc]=useState(emptyNpc)
   const [faction,setFaction]=useState(emptyFaction)
   const [simple,setSimple]=useState(emptySimple)
@@ -339,44 +400,138 @@ export default function HomePage(){
     })
   }
 
+  function openAdd(type){
+    if(type==='npcs') setNpc(emptyNpc)
+    if(type==='factions') setFaction(emptyFaction)
+    if(type==='sessions' || type==='chronicles' || type==='locations') setSimple(emptySimple)
+    setModal(type)
+  }
+
+  function openEdit(type,item){
+    if(type==='npcs') setNpc({...emptyNpc,...item})
+    if(type==='factions') setFaction({...emptyFaction,...item})
+    if(type==='sessions' || type==='chronicles') {
+      setSimple({
+        ...emptySimple,
+        id:item.id,
+        title:item.title || '',
+        date:item.date || '',
+        session_number:item.session_number || '',
+        summary:item.summary || '',
+        image_url:item.image_url || ''
+      })
+    }
+    if(type==='locations') {
+      setSimple({
+        ...emptySimple,
+        id:item.id,
+        name:item.name || '',
+        description:item.description || ''
+      })
+    }
+    setModal(type)
+  }
+
   async function saveNpc(){
     if(!npc.name.trim()) return
-    await supabase.from('npcs').insert([npc])
+
+    const payload = {
+      name:npc.name,
+      role:npc.role,
+      attitude:npc.attitude,
+      status:npc.status,
+      faction:npc.faction,
+      image_url:npc.image_url,
+      description:npc.description
+    }
+
+    if(npc.id) await supabase.from('npcs').update(payload).eq('id',npc.id)
+    else await supabase.from('npcs').insert([payload])
+
     setNpc(emptyNpc); setModal(null); loadAll()
   }
 
   async function saveFaction(){
     if(!faction.name.trim()) return
-    await supabase.from('factions').insert([faction])
+
+    const payload = {
+      name:faction.name,
+      icon:faction.icon,
+      description:faction.description,
+      influence:Number(faction.influence)||0
+    }
+
+    if(faction.id) await supabase.from('factions').update(payload).eq('id',faction.id)
+    else await supabase.from('factions').insert([payload])
+
     setFaction(emptyFaction); setModal(null); loadAll()
   }
 
   async function saveSimple(){
     if(modal==='sessions'){
-      await supabase.from('sessions').insert([{title:simple.title,date:simple.date,session_number:Number(simple.session_number)||null,summary:simple.summary,image_url:simple.image_url}])
+      const payload = {
+        title:simple.title,
+        date:simple.date,
+        session_number:Number(simple.session_number)||null,
+        summary:simple.summary,
+        image_url:simple.image_url
+      }
+
+      if(simple.id) await supabase.from('sessions').update(payload).eq('id',simple.id)
+      else await supabase.from('sessions').insert([payload])
     }
+
     if(modal==='chronicles'){
-      await supabase.from('chronicles').insert([{title:simple.title,date:simple.date,summary:simple.summary,image_url:simple.image_url}])
+      const payload = {
+        title:simple.title,
+        date:simple.date,
+        summary:simple.summary,
+        image_url:simple.image_url
+      }
+
+      if(simple.id) await supabase.from('chronicles').update(payload).eq('id',simple.id)
+      else await supabase.from('chronicles').insert([payload])
     }
+
     if(modal==='locations'){
-      await supabase.from('locations').insert([{name:simple.name,description:simple.description}])
+      const payload = {
+        name:simple.name,
+        description:simple.description
+      }
+
+      if(simple.id) await supabase.from('locations').update(payload).eq('id',simple.id)
+      else await supabase.from('locations').insert([payload])
     }
+
     setSimple(emptySimple); setModal(null); loadAll()
+  }
+
+  async function confirmDelete(){
+    if(!deleteTarget) return
+
+    await supabase.from(deleteTarget.table).delete().eq('id',deleteTarget.id)
+
+    setDeleteTarget(null)
+    loadAll()
+  }
+
+  function requestDelete(table,id,label){
+    setDeleteTarget({table,id,label})
   }
 
   return <main style={{minHeight:'100vh',background:C.bg,color:C.text}}>
     <Sidebar tab={tab} setTab={setTab} open={sidebarOpen} setOpen={setSidebarOpen}/>
 
     <section style={{padding:'52px 44px',maxWidth:980,width:'100%',margin:'0 auto'}}>
-      {tab==='npcs' && <NpcList npcs={data.npcs} factions={data.factions} onAdd={()=>setModal('npcs')}/>}
-      {tab==='factions' && <FactionList factions={data.factions} onAdd={()=>setModal('factions')}/>}
-      {tab==='sessions' && <SimpleArchive title="Sessioni" type="sessions" items={data.sessions} onAdd={()=>setModal('sessions')}/>}
-      {tab==='chronicles' && <SimpleArchive title="Cronache" type="chronicles" items={data.chronicles} onAdd={()=>setModal('chronicles')}/>}
-      {tab==='locations' && <SimpleArchive title="Luoghi" items={data.locations} onAdd={()=>setModal('locations')}/>}
+      {tab==='npcs' && <NpcList npcs={data.npcs} factions={data.factions} onAdd={()=>openAdd('npcs')} onEdit={(i)=>openEdit('npcs',i)} onDelete={requestDelete}/>}
+      {tab==='factions' && <FactionList factions={data.factions} onAdd={()=>openAdd('factions')} onEdit={(i)=>openEdit('factions',i)} onDelete={requestDelete}/>}
+      {tab==='sessions' && <SimpleArchive title="Sessioni" type="sessions" items={data.sessions} onAdd={()=>openAdd('sessions')} onEdit={(i)=>openEdit('sessions',i)} onDelete={requestDelete}/>}
+      {tab==='chronicles' && <SimpleArchive title="Cronache" type="chronicles" items={data.chronicles} onAdd={()=>openAdd('chronicles')} onEdit={(i)=>openEdit('chronicles',i)} onDelete={requestDelete}/>}
+      {tab==='locations' && <SimpleArchive title="Luoghi" type="locations" items={data.locations} onAdd={()=>openAdd('locations')} onEdit={(i)=>openEdit('locations',i)} onDelete={requestDelete}/>}
       {tab==='oracle' && <Oracle data={data}/>}
     </section>
 
-    {modal==='npcs' && <Modal title="Aggiungi NPC" onClose={()=>setModal(null)} onSave={saveNpc}>
+    {modal==='npcs' && <Modal title={npc.id ? 'Modifica NPC' : 'Aggiungi NPC'} onClose={()=>setModal(null)} onSave={saveNpc}>
       <input value={npc.name} onChange={e=>setNpc({...npc,name:e.target.value})} placeholder="Nome" style={inputStyle}/>
       <input value={npc.role} onChange={e=>setNpc({...npc,role:e.target.value})} placeholder="Ruolo" style={inputStyle}/>
 
@@ -396,14 +551,20 @@ export default function HomePage(){
       <textarea value={npc.description} onChange={e=>setNpc({...npc,description:e.target.value})} placeholder="Descrizione" rows={5} style={{...inputStyle,resize:'vertical'}}/>
     </Modal>}
 
-    {modal==='factions' && <Modal title="Aggiungi Fazione" onClose={()=>setModal(null)} onSave={saveFaction}>
+    {modal==='factions' && <Modal title={faction.id ? 'Modifica Fazione' : 'Aggiungi Fazione'} onClose={()=>setModal(null)} onSave={saveFaction}>
       <input value={faction.name} onChange={e=>setFaction({...faction,name:e.target.value})} placeholder="Nome" style={inputStyle}/>
       <input value={faction.icon} onChange={e=>setFaction({...faction,icon:e.target.value})} placeholder="Icona es. ⚔️" style={inputStyle}/>
       <textarea value={faction.description} onChange={e=>setFaction({...faction,description:e.target.value})} placeholder="Descrizione" rows={5} style={{...inputStyle,resize:'vertical'}}/>
       <input type="number" value={faction.influence} onChange={e=>setFaction({...faction,influence:Number(e.target.value)})} placeholder="Influenza 0-100" style={inputStyle}/>
     </Modal>}
 
-    {(modal==='sessions' || modal==='chronicles' || modal==='locations') && <Modal title={modal==='sessions'?'Aggiungi Sessione':modal==='chronicles'?'Aggiungi Cronaca':'Aggiungi Luogo'} onClose={()=>setModal(null)} onSave={saveSimple}>
+    {(modal==='sessions' || modal==='chronicles' || modal==='locations') && <Modal title={
+      modal==='sessions'
+        ? simple.id ? 'Modifica Sessione' : 'Aggiungi Sessione'
+        : modal==='chronicles'
+          ? simple.id ? 'Modifica Cronaca' : 'Aggiungi Cronaca'
+          : simple.id ? 'Modifica Luogo' : 'Aggiungi Luogo'
+    } onClose={()=>setModal(null)} onSave={saveSimple}>
       {modal==='locations' ? <>
         <input value={simple.name} onChange={e=>setSimple({...simple,name:e.target.value})} placeholder="Nome luogo" style={inputStyle}/>
         <textarea value={simple.description} onChange={e=>setSimple({...simple,description:e.target.value})} placeholder="Descrizione" rows={5} style={{...inputStyle,resize:'vertical'}}/>
@@ -416,5 +577,13 @@ export default function HomePage(){
         <textarea value={simple.summary} onChange={e=>setSimple({...simple,summary:e.target.value})} placeholder="Riassunto" rows={5} style={{...inputStyle,resize:'vertical'}}/>
       </>}
     </Modal>}
+
+    {deleteTarget && (
+      <ConfirmModal
+        label={deleteTarget.label}
+        onClose={()=>setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
+    )}
   </main>
 }
