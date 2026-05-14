@@ -32,36 +32,9 @@ const menu = [
   ['oracle','Oracolo']
 ]
 
-const emptyNpc = {
-  id:null,
-  name:'',
-  role:'',
-  attitude:'ALLEATO',
-  status:'VIVO',
-  faction:'',
-  image_url:'',
-  description:''
-}
-
-const emptyFaction = {
-  id:null,
-  name:'',
-  icon:'⚔️',
-  description:'',
-  influence:0
-}
-
-const emptySimple = {
-  id:null,
-  title:'',
-  date:'',
-  session_number:'',
-  summary:'',
-  name:'',
-  description:'',
-  image_url:'',
-  npc_ids:[]
-}
+const emptyNpc = { id:null, name:'', role:'', attitude:'ALLEATO', status:'VIVO', faction:'', image_url:'', description:'' }
+const emptyFaction = { id:null, name:'', icon:'⚔️', description:'', influence:0 }
+const emptySimple = { id:null, title:'', date:'', session_number:'', summary:'', name:'', description:'', image_url:'', npc_ids:[] }
 
 const inputStyle = {
   width:'100%',
@@ -80,40 +53,26 @@ async function uploadImage(file, folder='uploads'){
   const ext = file.name.split('.').pop()
   const path = `${folder}/${Date.now()}.${ext}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file)
-
-  if(error){
-    alert(error.message)
-    return ''
-  }
-
+  if(error){ alert(error.message); return '' }
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
   return data.publicUrl
 }
 
-function Card({children,style={}}){
-  return <div className="card" style={style}>{children}</div>
+function getShort(text='', max=95){
+  if(!text) return ''
+  return text.length > max ? text.slice(0,max).trim() + '…' : text
 }
 
 function Tag({children,type}){
   const color = type==='green'?C.green:type==='yellow'?C.yellow:type==='red'?C.red:C.accent
-
-  return <span style={{
-    display:'inline-block',
-    border:`1px solid ${color}`,
-    color,
-    padding:'3px 9px',
-    fontSize:11,
-    fontWeight:600,
-    letterSpacing:'.14em',
-    marginRight:6,
-    marginTop:6,
-    textTransform:'uppercase'
-  }}>
-    {children}
-  </span>
+  return <span className="tag" style={{borderColor:color,color}}>{children}</span>
 }
 
-function Modal({title,onClose,children,onSave,saveLabel='Salva'}){
+function Card({children,onClick}){
+  return <div className="compactCard" onClick={onClick}>{children}</div>
+}
+
+function Modal({title,onClose,children,onSave,saveLabel='Salva',hideFooter=false}){
   return <div className="modalOverlay">
     <div className="modalBox">
       <div className="modalHead">
@@ -121,89 +80,24 @@ function Modal({title,onClose,children,onSave,saveLabel='Salva'}){
         <button onClick={onClose}>×</button>
       </div>
 
-      <div className="modalBody">
-        {children}
-      </div>
+      <div className="modalBody">{children}</div>
 
-      <div className="modalFoot">
-        <button className="ghostBtn" onClick={onClose}>Annulla</button>
-        <button className="dangerBtn" onClick={onSave}>{saveLabel}</button>
-      </div>
+      {!hideFooter && (
+        <div className="modalFoot">
+          <button className="ghostBtn" onClick={onClose}>Annulla</button>
+          <button className="dangerBtn" onClick={onSave}>{saveLabel}</button>
+        </div>
+      )}
     </div>
   </div>
 }
 
 function ConfirmModal({onClose,onConfirm,label}){
   return <Modal title="Conferma eliminazione" onClose={onClose} onSave={onConfirm} saveLabel="Sì, elimina">
-    <p style={{color:C.dim,lineHeight:1.7,marginTop:0}}>
-      Stai per eliminare <strong style={{color:C.text}}>{label}</strong>.<br/>
+    <p className="detailText">
+      Stai per eliminare <strong>{label}</strong>.<br/>
       Questa azione non può essere annullata.
     </p>
-  </Modal>
-}
-
-function NpcDetailsModal({npc,onClose,onEdit,onDelete}){
-  if(!npc) return null
-
-  return <Modal title={npc.name} onClose={onClose} onSave={onClose} saveLabel="Chiudi">
-    <div style={{display:'grid',gap:18}}>
-      {npc.image_url ? (
-        <img
-          src={npc.image_url}
-          alt={npc.name}
-          style={{
-            width:'100%',
-            maxHeight:360,
-            objectFit:'cover',
-            border:`1px solid ${C.border}`
-          }}
-        />
-      ) : (
-        <div style={{
-          height:220,
-          border:`1px solid ${C.border}`,
-          background:C.card2,
-          display:'flex',
-          alignItems:'center',
-          justifyContent:'center',
-          fontSize:60
-        }}>
-          👤
-        </div>
-      )}
-
-      <div>
-        <div style={{fontSize:22,color:C.text,marginBottom:4}}>{npc.name}</div>
-        <div style={{color:C.dim,marginBottom:10}}>{npc.role || 'Ruolo ignoto'}</div>
-
-        <Tag type={npc.attitude==='NEMICO'?'red':npc.attitude==='NEUTRALE'?'yellow':'green'}>
-          {npc.attitude || 'SCONOSCIUTO'}
-        </Tag>
-
-        <Tag type={npc.status==='MORTO'?'red':'green'}>
-          {npc.status || 'VIVO'}
-        </Tag>
-
-        {npc.faction && <Tag type="yellow">{npc.faction}</Tag>}
-      </div>
-
-      <div style={{
-        color:C.dim,
-        lineHeight:1.75,
-        whiteSpace:'pre-wrap',
-        borderTop:`1px solid ${C.border}`,
-        paddingTop:16
-      }}>
-        {npc.description || 'Nessuna descrizione.'}
-      </div>
-
-      {IS_DM && (
-        <div className="actions">
-          <button onClick={()=>onEdit(npc)}>Modifica</button>
-          <button className="delete" onClick={()=>onDelete('npcs',npc.id,npc.name)}>Elimina</button>
-        </div>
-      )}
-    </div>
   </Modal>
 }
 
@@ -220,11 +114,7 @@ function Sidebar({tab,setTab,open,setOpen}){
 
       <nav>
         {menu.map(([id,label])=>(
-          <button
-            key={id}
-            onClick={()=>{setTab(id);setOpen(false)}}
-            className={tab===id?'active':''}
-          >
+          <button key={id} onClick={()=>{setTab(id);setOpen(false)}} className={tab===id?'active':''}>
             {label}
           </button>
         ))}
@@ -241,9 +131,7 @@ function HeaderBar({title,onAdd,canAdd=true}){
     </div>
 
     {IS_DM && canAdd && (
-      <button className="addBtn" onClick={onAdd}>
-        + Aggiungi
-      </button>
+      <button className="addBtn" onClick={onAdd}>+ Aggiungi</button>
     )}
   </div>
 }
@@ -251,10 +139,25 @@ function HeaderBar({title,onAdd,canAdd=true}){
 function ActionButtons({onEdit,onDelete}){
   if(!IS_DM) return null
 
-  return <div className="actions">
+  return <div className="actions" onClick={e=>e.stopPropagation()}>
     <button onClick={onEdit}>Modifica</button>
     <button className="delete" onClick={onDelete}>Elimina</button>
   </div>
+}
+
+function DetailActions({onEdit,onDelete,onClose}){
+  if(!IS_DM) return null
+
+  return <div className="detailActions">
+    <button onClick={onEdit}>Modifica</button>
+    <button className="delete" onClick={onDelete}>Elimina</button>
+    <button className="ghost" onClick={onClose}>Chiudi</button>
+  </div>
+}
+
+function CompactList({items,empty,onOpen,render}){
+  if(!items.length) return <div className="emptyBox">{empty}</div>
+  return <div className="list">{items.map(item=>render(item,onOpen))}</div>
 }
 
 function NpcList({npcs,factions,onAdd,onEdit,onDelete,onOpenDetails}){
@@ -269,7 +172,6 @@ function NpcList({npcs,factions,onAdd,onEdit,onDelete,onOpenDetails}){
       n.role?.toLowerCase().includes(search.toLowerCase())
 
     const matchFaction = filter === 'Tutti' || n.faction === filter
-
     return matchSearch && matchFaction
   })
 
@@ -294,156 +196,192 @@ function NpcList({npcs,factions,onAdd,onEdit,onDelete,onOpenDetails}){
 
     {Object.entries(grouped).map(([faction,items])=>(
       <section key={faction} className="group">
-        <div className="groupTitle">
-          {faction} <span>({items.length})</span>
-        </div>
+        <div className="groupTitle">{faction} <span>({items.length})</span></div>
 
-        <div className="list">
-          {items.map(n=>(
-            <div
-              key={n.id}
-              className="npcRow"
-              onClick={()=>onOpenDetails(n)}
-            >
-              <div className="avatar" style={{borderColor:n.status==='MORTO'?C.red:C.green}}>
+        <CompactList
+          items={items}
+          empty="Nessun NPC trovato."
+          onOpen={onOpenDetails}
+          render={(n)=>(
+            <Card key={n.id} onClick={()=>onOpenDetails(n)}>
+              <div className="thumb round" style={{borderColor:n.status==='MORTO'?C.red:C.green}}>
                 {n.image_url ? <img src={n.image_url} alt={n.name}/> : <span>👤</span>}
               </div>
 
-              <div className="npcInfo">
+              <div className="compactInfo">
                 <h3>{n.name}</h3>
                 <p>{n.role || 'Ruolo ignoto'}</p>
 
-                <Tag type={n.attitude==='NEMICO'?'red':n.attitude==='NEUTRALE'?'yellow':'green'}>
-                  {n.attitude || 'SCONOSCIUTO'}
-                </Tag>
-
-                <Tag type={n.status==='MORTO'?'red':'green'}>
-                  {n.status || 'VIVO'}
-                </Tag>
-
-                {n.faction && <Tag type="yellow">{n.faction}</Tag>}
+                <div>
+                  <Tag type={n.attitude==='NEMICO'?'red':n.attitude==='NEUTRALE'?'yellow':'green'}>
+                    {n.attitude || 'SCONOSCIUTO'}
+                  </Tag>
+                  <Tag type={n.status==='MORTO'?'red':'green'}>
+                    {n.status || 'VIVO'}
+                  </Tag>
+                  {n.faction && <Tag type="yellow">{n.faction}</Tag>}
+                </div>
 
                 <ActionButtons
-                  onEdit={(e)=>{
-                    e?.stopPropagation?.()
-                    onEdit(n)
-                  }}
-                  onDelete={(e)=>{
-                    e?.stopPropagation?.()
-                    onDelete('npcs',n.id,n.name)
-                  }}
+                  onEdit={()=>onEdit(n)}
+                  onDelete={()=>onDelete('npcs',n.id,n.name)}
                 />
               </div>
-            </div>
-          ))}
-        </div>
+            </Card>
+          )}
+        />
       </section>
     ))}
 
-    {filtered.length===0 && <Card><div className="empty">Nessun NPC trovato.</div></Card>}
+    {filtered.length===0 && <div className="emptyBox">Nessun NPC trovato.</div>}
   </>
 }
 
 function InfluenceBar({value=0}){
   const safeValue = Math.max(0,Math.min(100,Number(value)||0))
-
-  return <div style={{marginTop:10}}>
-    <div style={{
-      height:8,
-      background:C.bg,
-      border:`1px solid ${C.border}`,
-      overflow:'hidden'
-    }}>
-      <div style={{
-        width:`${safeValue}%`,
-        height:'100%',
-        background:C.accent
-      }} />
-    </div>
-
-    <div style={{
-      marginTop:6,
-      fontSize:13,
-      color:C.accent2
-    }}>
-      Influenza: {safeValue}%
-    </div>
+  return <div className="influence">
+    <div className="bar"><div style={{width:`${safeValue}%`}}/></div>
+    <span>{safeValue}%</span>
   </div>
 }
 
-function FactionList({factions,onAdd,onEdit,onDelete}){
+function FactionList({factions,onAdd,onEdit,onDelete,onOpenDetails}){
   return <>
     <HeaderBar title="Fazioni" onAdd={onAdd}/>
 
-    <div className="gridList">
-      {factions.map(f=>(
-        <Card key={f.id}>
-          <div className="factionCard">
-            <div className="icon">{f.icon || '⚔️'}</div>
+    <CompactList
+      items={factions}
+      empty="Nessuna fazione salvata."
+      onOpen={onOpenDetails}
+      render={(f)=>(
+        <Card key={f.id} onClick={()=>onOpenDetails(f)}>
+          <div className="thumb iconThumb">{f.icon || '⚔️'}</div>
 
-            <div style={{flex:1}}>
-              <h3>{f.name}</h3>
-              <p>{f.description}</p>
+          <div className="compactInfo">
+            <h3>{f.name}</h3>
+            <p>{getShort(f.description,90)}</p>
+            <InfluenceBar value={f.influence}/>
 
-              <InfluenceBar value={f.influence}/>
-
-              <ActionButtons
-                onEdit={()=>onEdit(f)}
-                onDelete={()=>onDelete('factions',f.id,f.name)}
-              />
-            </div>
+            <ActionButtons
+              onEdit={()=>onEdit(f)}
+              onDelete={()=>onDelete('factions',f.id,f.name)}
+            />
           </div>
         </Card>
-      ))}
-
-      {factions.length===0 && <Card><div className="empty">Nessuna fazione salvata.</div></Card>}
-    </div>
+      )}
+    />
   </>
 }
 
 function NpcNames({ids,npcs}){
   const selected = npcs.filter(n=>ids?.includes(n.id))
-
   if(!selected.length) return null
 
-  return <div className="sessionNpcs">
-    <div className="miniLabel">NPC incontrati</div>
-    {selected.map(n=>(
-      <Tag key={n.id} type="yellow">{n.name}</Tag>
-    ))}
+  return <div className="miniTags">
+    {selected.map(n=><Tag key={n.id} type="yellow">{n.name}</Tag>)}
   </div>
 }
 
-function SimpleArchive({title,items,onAdd,type,onEdit,onDelete,npcs=[]}){
+function ArchiveList({title,items,onAdd,type,onEdit,onDelete,onOpenDetails,npcs=[]}){
   return <>
     <HeaderBar title={title} onAdd={onAdd}/>
 
-    <div className="gridList">
-      {items.map(i=>(
-        <Card key={i.id}>
-          {i.image_url && <img className="cover" src={i.image_url} alt=""/>}
+    <CompactList
+      items={items}
+      empty="Nessun elemento salvato."
+      onOpen={onOpenDetails}
+      render={(i)=>(
+        <Card key={i.id} onClick={()=>onOpenDetails({...i,type})}>
+          <div className="thumb">
+            {i.image_url
+              ? <img src={i.image_url} alt=""/>
+              : <span>{type==='sessions'?'📜':type==='chronicles'?'🕯️':'🗺️'}</span>
+            }
+          </div>
 
-          <h3 className="itemTitle">
-            {type==='sessions' && i.session_number ? `Sessione ${i.session_number} — ` : ''}
-            {i.title || i.name}
-          </h3>
+          <div className="compactInfo">
+            <h3>
+              {type==='sessions' && i.session_number ? `Sessione ${i.session_number} — ` : ''}
+              {i.title || i.name}
+            </h3>
 
-          {i.date && <div className="date">{i.date}</div>}
+            {i.date && <p className="dateLine">{i.date}</p>}
+            <p>{getShort(i.summary || i.description,90)}</p>
 
-          <div className="summary">{i.summary || i.description}</div>
+            {type==='sessions' && <NpcNames ids={i.npc_ids || []} npcs={npcs}/>}
 
-          {type==='sessions' && <NpcNames ids={i.npc_ids || []} npcs={npcs}/>}
-
-          <ActionButtons
-            onEdit={()=>onEdit(i)}
-            onDelete={()=>onDelete(type,i.id,i.title || i.name)}
-          />
+            <ActionButtons
+              onEdit={()=>onEdit(i)}
+              onDelete={()=>onDelete(type,i.id,i.title || i.name)}
+            />
+          </div>
         </Card>
-      ))}
-
-      {items.length===0 && <Card><div className="empty">Nessun elemento salvato.</div></Card>}
-    </div>
+      )}
+    />
   </>
+}
+
+function DetailsModal({item,type,npcs,onClose,onEdit,onDelete}){
+  if(!item) return null
+
+  const title =
+    type==='sessions' && item.session_number
+      ? `Sessione ${item.session_number} — ${item.title}`
+      : item.title || item.name
+
+  return <Modal title={title} onClose={onClose} hideFooter>
+    <div className="detailWrap">
+      {item.image_url && (
+        <img className="detailImage" src={item.image_url} alt={title}/>
+      )}
+
+      {type==='npcs' && (
+        <>
+          {item.image_url ? (
+            <img className="portrait" src={item.image_url} alt={item.name}/>
+          ) : (
+            <div className="portrait emptyPortrait">👤</div>
+          )}
+
+          <div className="detailTitle">{item.name}</div>
+          <div className="detailSub">{item.role || 'Ruolo ignoto'}</div>
+
+          <Tag type={item.attitude==='NEMICO'?'red':item.attitude==='NEUTRALE'?'yellow':'green'}>
+            {item.attitude || 'SCONOSCIUTO'}
+          </Tag>
+          <Tag type={item.status==='MORTO'?'red':'green'}>
+            {item.status || 'VIVO'}
+          </Tag>
+          {item.faction && <Tag type="yellow">{item.faction}</Tag>}
+
+          <div className="detailText">{item.description || 'Nessuna descrizione.'}</div>
+        </>
+      )}
+
+      {type==='factions' && (
+        <>
+          <div className="bigIcon">{item.icon || '⚔️'}</div>
+          <div className="detailTitle">{item.name}</div>
+          <InfluenceBar value={item.influence}/>
+          <div className="detailText">{item.description || 'Nessuna descrizione.'}</div>
+        </>
+      )}
+
+      {(type==='sessions' || type==='chronicles' || type==='locations') && (
+        <>
+          {item.date && <div className="dateLine big">{item.date}</div>}
+          <div className="detailText">{item.summary || item.description || 'Nessuna descrizione.'}</div>
+          {type==='sessions' && <NpcNames ids={item.npc_ids || []} npcs={npcs}/>}
+        </>
+      )}
+
+      <DetailActions
+        onEdit={()=>onEdit(type,item)}
+        onDelete={()=>onDelete(type,item.id,item.title || item.name)}
+        onClose={onClose}
+      />
+    </div>
+  </Modal>
 }
 
 function Oracle({data}){
@@ -475,7 +413,6 @@ ${data.factions.map(f=>`- ${f.name}, influenza ${f.influence||0}%: ${f.descripti
 LUOGHI:
 ${data.locations.map(l=>`- ${l.name}: ${l.description||''}`).join('\n')}
 `
-
     try{
       const res = await fetch('/api/oracolo',{
         method:'POST',
@@ -495,7 +432,7 @@ ${data.locations.map(l=>`- ${l.name}: ${l.description||''}`).join('\n')}
   return <>
     <HeaderBar title="Oracolo" canAdd={false}/>
 
-    <Card>
+    <div className="oracleBox">
       <textarea
         value={input}
         onChange={e=>setInput(e.target.value)}
@@ -509,7 +446,7 @@ ${data.locations.map(l=>`- ${l.name}: ${l.description||''}`).join('\n')}
       </button>
 
       {reply && <div className="oracleReply">{reply}</div>}
-    </Card>
+    </div>
   </>
 }
 
@@ -519,7 +456,7 @@ export default function HomePage(){
   const [data,setData]=useState({sessions:[],chronicles:[],npcs:[],factions:[],locations:[]})
   const [modal,setModal]=useState(null)
   const [deleteTarget,setDeleteTarget]=useState(null)
-  const [selectedNpc,setSelectedNpc]=useState(null)
+  const [details,setDetails]=useState(null)
 
   const [npc,setNpc]=useState(emptyNpc)
   const [faction,setFaction]=useState(emptyFaction)
@@ -549,11 +486,12 @@ export default function HomePage(){
     if(type==='npcs') setNpc(emptyNpc)
     if(type==='factions') setFaction(emptyFaction)
     if(type==='sessions'||type==='chronicles'||type==='locations') setSimple(emptySimple)
-
     setModal(type)
   }
 
   function openEdit(type,item){
+    setDetails(null)
+
     if(type==='npcs') setNpc({...emptyNpc,...item})
     if(type==='factions') setFaction({...emptyFaction,...item})
 
@@ -567,8 +505,6 @@ export default function HomePage(){
     }
 
     if(type==='locations') setSimple({...emptySimple,...item})
-
-    setSelectedNpc(null)
     setModal(type)
   }
 
@@ -659,7 +595,7 @@ export default function HomePage(){
     await supabase.from(deleteTarget.table).delete().eq('id',deleteTarget.id)
 
     setDeleteTarget(null)
-    setSelectedNpc(null)
+    setDetails(null)
     loadAll()
   }
 
@@ -692,33 +628,37 @@ export default function HomePage(){
       nav{display:grid;gap:4px}
       nav button{text-align:left;padding:13px 12px;background:transparent;border:1px solid transparent;color:${C.dim};cursor:pointer;border-radius:0;font-size:16px}
       nav button.active{border-color:${C.border2};background:rgba(184,155,94,.08);color:${C.text}}
-      section.mainContent{padding:72px 18px 32px;max-width:980px;margin:0 auto}
+      section.mainContent{padding:72px 18px 32px;max-width:900px;margin:0 auto}
       .headerBar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}
       .sectionLabel{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:${C.accent};margin-bottom:6px}
       .headerBar h2{margin:0;color:${C.text};font-size:32px;font-weight:400;letter-spacing:.04em}
       .addBtn{background:${C.accent};color:#120c06;border:none;padding:12px 18px;font-weight:700;cursor:pointer;border-radius:0;white-space:nowrap}
       .addBtn.full{width:100%;margin-top:4px}
-      .card{background:${C.card};border:1px solid ${C.border};border-radius:0;padding:18px;margin-bottom:14px}
       .filters{display:grid;grid-template-columns:1fr 220px;gap:14px;margin-bottom:12px}
-      .count,.empty{color:${C.muted};font-style:italic}
+      .count,.emptyBox{color:${C.muted};font-style:italic;margin-bottom:18px}
       .group{margin-bottom:26px}
       .groupTitle{color:${C.accent2};font-size:13px;letter-spacing:.22em;text-transform:uppercase;border-bottom:1px solid ${C.border};padding-bottom:10px;margin-bottom:14px}
       .groupTitle span{color:${C.muted}}
       .list{display:grid;gap:12px}
-      .npcRow{display:flex;gap:16px;align-items:center;background:${C.card};border:1px solid ${C.border};padding:16px;cursor:pointer;transition:.15s}
-      .npcRow:hover{border-color:${C.accent};background:${C.card2}}
-      .avatar{width:76px;height:76px;border-radius:50%;border:3px solid ${C.green};overflow:hidden;flex-shrink:0;background:${C.card2};display:flex;align-items:center;justify-content:center}
-      .avatar img{width:100%;height:100%;object-fit:cover}
-      .npcInfo{flex:1}
-      .npcInfo h3,.factionCard h3,.itemTitle{margin:0 0 6px;color:${C.text};font-size:22px;font-weight:400}
-      .npcInfo p,.factionCard p,.summary{color:${C.dim};line-height:1.65;white-space:pre-wrap}
-      .gridList{display:grid;gap:14px}
-      .factionCard{display:flex;gap:14px;align-items:flex-start}
-      .icon{font-size:32px}
-      .date{color:${C.accent2};font-size:14px;margin-bottom:8px}
-      .cover{width:100%;max-height:240px;object-fit:cover;margin-bottom:14px;border:1px solid ${C.border}}
-      .actions{display:flex;gap:8px;margin-top:14px}
-      .actions button{flex:1;background:transparent;border:1px solid ${C.border2};color:${C.dim};padding:9px 10px;cursor:pointer;border-radius:0}
+      .compactCard{display:flex;gap:16px;align-items:center;background:${C.card};border:1px solid ${C.border};padding:16px;cursor:pointer;transition:.15s}
+      .compactCard:hover{border-color:${C.accent};background:${C.card2}}
+      .thumb{width:72px;height:72px;border:1px solid ${C.border};overflow:hidden;flex-shrink:0;background:${C.card2};display:flex;align-items:center;justify-content:center;font-size:30px;color:${C.accent2}}
+      .thumb.round{border-radius:50%;border:3px solid ${C.green}}
+      .thumb img{width:100%;height:100%;object-fit:cover}
+      .iconThumb{font-size:34px}
+      .compactInfo{flex:1;min-width:0}
+      .compactInfo h3{margin:0 0 5px;color:${C.text};font-size:22px;font-weight:400}
+      .compactInfo p{margin:0 0 6px;color:${C.dim};line-height:1.45}
+      .tag{display:inline-block;padding:3px 9px;font-size:11px;font-weight:600;letter-spacing:.14em;margin-right:6px;margin-top:6px;text-transform:uppercase;border:1px solid}
+      .dateLine{color:${C.accent2}!important;font-size:14px!important;margin-bottom:4px!important}
+      .dateLine.big{margin-bottom:14px!important}
+      .miniTags{margin-top:8px}
+      .influence{display:flex;align-items:center;gap:10px;margin-top:8px}
+      .bar{height:7px;background:${C.bg};border:1px solid ${C.border};flex:1}
+      .bar div{height:100%;background:${C.accent}}
+      .influence span{color:${C.accent2};font-size:13px}
+      .actions{display:flex;gap:8px;margin-top:12px}
+      .actions button{flex:1;background:transparent;border:1px solid ${C.border2};color:${C.dim};padding:8px 10px;cursor:pointer;border-radius:0}
       .actions .delete{background:${C.red};border-color:${C.red};color:#fff}
       .modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px}
       .modalBox{width:100%;max-width:620px;max-height:92vh;overflow:auto;background:${C.card};border:1px solid ${C.border2};border-radius:0}
@@ -729,25 +669,40 @@ export default function HomePage(){
       .modalFoot{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid ${C.border};padding:16px 20px}
       .ghostBtn{background:transparent;border:1px solid ${C.border2};color:${C.dim};padding:11px 18px;cursor:pointer;border-radius:0}
       .dangerBtn{background:${C.red};border:1px solid ${C.red};color:white;padding:11px 18px;cursor:pointer;border-radius:0}
+      .detailWrap{display:grid;gap:16px}
+      .portrait{width:100%;max-height:380px;object-fit:cover;border:1px solid ${C.border}}
+      .emptyPortrait{height:260px;background:${C.card2};display:flex;align-items:center;justify-content:center;font-size:70px}
+      .detailImage{width:100%;max-height:340px;object-fit:cover;border:1px solid ${C.border}}
+      .detailTitle{font-size:28px;color:${C.text};font-weight:400}
+      .detailSub{color:${C.dim};font-size:18px}
+      .detailText{color:${C.dim};line-height:1.75;white-space:pre-wrap;border-top:1px solid ${C.border};padding-top:16px}
+      .detailText strong{color:${C.text}}
+      .bigIcon{font-size:54px}
+      .detailActions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+      .detailActions button{background:transparent;border:1px solid ${C.border2};color:${C.dim};padding:11px;cursor:pointer}
+      .detailActions .delete{background:${C.red};border-color:${C.red};color:white}
+      .detailActions .ghost{background:${C.panel}}
+      .oracleBox{background:${C.card};border:1px solid ${C.border};padding:18px}
       .oracleReply{margin-top:18px;padding:18px;background:${C.bg};border:1px solid ${C.border};color:${C.dim};white-space:pre-wrap;line-height:1.7;font-style:italic}
       .miniLabel{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.accent};margin:16px 0 6px}
       .npcCheckboxList{display:grid;gap:8px;margin-bottom:14px}
       .npcCheck{display:flex;align-items:center;gap:10px;border:1px solid ${C.border};padding:10px;color:${C.dim};cursor:pointer}
       .npcCheck input{width:18px;height:18px}
-      .sessionNpcs{margin-top:14px;border-top:1px solid ${C.border};padding-top:10px}
       @media(max-width:700px){
         section.mainContent{padding:76px 12px 24px}
         .headerBar{align-items:flex-start}
         .headerBar h2{font-size:28px}
         .addBtn{padding:11px 13px}
         .filters{grid-template-columns:1fr}
-        .npcRow{align-items:flex-start}
-        .avatar{width:62px;height:62px}
-        .npcInfo h3{font-size:20px}
+        .compactCard{gap:14px;padding:14px}
+        .thumb{width:62px;height:62px}
+        .compactInfo h3{font-size:20px}
+        .compactInfo p{font-size:15px}
         .actions{flex-direction:column}
         .modalOverlay{align-items:flex-end;padding:0}
         .modalBox{max-height:90vh;width:100%;border-left:none;border-right:none;border-bottom:none}
         .modalFoot{position:sticky;bottom:0;background:${C.card}}
+        .detailActions{grid-template-columns:1fr}
       }
     `}</style>
 
@@ -761,7 +716,7 @@ export default function HomePage(){
           onAdd={()=>openAdd('npcs')}
           onEdit={(i)=>openEdit('npcs',i)}
           onDelete={requestDelete}
-          onOpenDetails={setSelectedNpc}
+          onOpenDetails={(item)=>setDetails({type:'npcs',item})}
         />
       )}
 
@@ -771,11 +726,12 @@ export default function HomePage(){
           onAdd={()=>openAdd('factions')}
           onEdit={(i)=>openEdit('factions',i)}
           onDelete={requestDelete}
+          onOpenDetails={(item)=>setDetails({type:'factions',item})}
         />
       )}
 
       {tab==='sessions' && (
-        <SimpleArchive
+        <ArchiveList
           title="Sessioni"
           type="sessions"
           items={data.sessions}
@@ -783,39 +739,44 @@ export default function HomePage(){
           onAdd={()=>openAdd('sessions')}
           onEdit={(i)=>openEdit('sessions',i)}
           onDelete={requestDelete}
+          onOpenDetails={(item)=>setDetails({type:'sessions',item})}
         />
       )}
 
       {tab==='chronicles' && (
-        <SimpleArchive
+        <ArchiveList
           title="Cronache"
           type="chronicles"
           items={data.chronicles}
           onAdd={()=>openAdd('chronicles')}
           onEdit={(i)=>openEdit('chronicles',i)}
           onDelete={requestDelete}
+          onOpenDetails={(item)=>setDetails({type:'chronicles',item})}
         />
       )}
 
       {tab==='locations' && (
-        <SimpleArchive
+        <ArchiveList
           title="Luoghi"
           type="locations"
           items={data.locations}
           onAdd={()=>openAdd('locations')}
           onEdit={(i)=>openEdit('locations',i)}
           onDelete={requestDelete}
+          onOpenDetails={(item)=>setDetails({type:'locations',item})}
         />
       )}
 
       {tab==='oracle' && <Oracle data={data}/>}
     </section>
 
-    {selectedNpc && (
-      <NpcDetailsModal
-        npc={selectedNpc}
-        onClose={()=>setSelectedNpc(null)}
-        onEdit={(i)=>openEdit('npcs',i)}
+    {details && (
+      <DetailsModal
+        item={details.item}
+        type={details.type}
+        npcs={data.npcs}
+        onClose={()=>setDetails(null)}
+        onEdit={openEdit}
         onDelete={requestDelete}
       />
     )}
@@ -824,7 +785,6 @@ export default function HomePage(){
       <input value={npc.name} onChange={e=>setNpc({...npc,name:e.target.value})} placeholder="Nome" style={inputStyle}/>
       <input value={npc.role} onChange={e=>setNpc({...npc,role:e.target.value})} placeholder="Ruolo" style={inputStyle}/>
       <input type="file" accept="image/*" style={inputStyle} onChange={async e=>setNpc({...npc,image_url:await uploadImage(e.target.files?.[0],'npcs')})}/>
-
       {npc.image_url && <img src={npc.image_url} alt="" style={{width:90,height:90,borderRadius:'50%',objectFit:'cover',marginBottom:14}}/>}
 
       <select value={npc.attitude} onChange={e=>setNpc({...npc,attitude:e.target.value})} style={inputStyle}>
@@ -889,7 +849,6 @@ export default function HomePage(){
         <input value={simple.title} onChange={e=>setSimple({...simple,title:e.target.value})} placeholder="Titolo" style={inputStyle}/>
         <input type="date" value={simple.date} onChange={e=>setSimple({...simple,date:e.target.value})} style={inputStyle}/>
         <input type="file" accept="image/*" style={inputStyle} onChange={async e=>setSimple({...simple,image_url:await uploadImage(e.target.files?.[0],modal)})}/>
-
         {simple.image_url && <img src={simple.image_url} alt="" style={{width:'100%',maxHeight:180,objectFit:'cover',borderRadius:0,marginBottom:14}}/>}
 
         <textarea value={simple.summary} onChange={e=>setSimple({...simple,summary:e.target.value})} placeholder="Riassunto" rows={5} style={{...inputStyle,resize:'vertical'}}/>
