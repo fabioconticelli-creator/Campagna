@@ -3,169 +3,446 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const C={bg:'#0e0b14',bg2:'#13101a',bg3:'#1a1624',border:'#2a2040',border2:'#332848',red:'#c0392b',red2:'#e74c3c',text:'#e8e0f0',textDim:'#8a7fa0',textMuted:'#4a4060'}
+const C = {
+  bg: '#08040f',
+  bg2: '#12091c',
+  bg3: '#1b1029',
+  border: '#2d183f',
+  border2: '#46235f',
+  text: '#f4eefe',
+  textDim: '#b9a7cc',
+  textMuted: '#7e6d92',
+  red: '#d14b3d',
+  red2: '#ff6b57'
+}
 
-const tabs=[
-  ['sessions','📜 Sessioni'],
-  ['npcs','👤 PNG'],
-  ['factions','🏰 Fazioni'],
-  ['locations','🗺️ Luoghi'],
-  ['oracle','🔮 Oracolo']
-]
+function Card({ children, style = {} }) {
+  return (
+    <div
+      style={{
+        background: C.bg2,
+        border: `1px solid ${C.border}`,
+        borderRadius: 18,
+        padding: 20,
+        boxShadow: '0 0 30px rgba(0,0,0,.25)',
+        ...style
+      }}
+    >
+      {children}
+    </div>
+  )
+}
 
-function Card({children}){return <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:16,padding:18}}>{children}</div>}
+function Section({ title, children, open = false }) {
+  return (
+    <details
+      open={open}
+      style={{
+        marginBottom: 18,
+        background: C.bg2,
+        border: `1px solid ${C.border}`,
+        borderRadius: 18,
+        overflow: 'hidden'
+      }}
+    >
+      <summary
+        style={{
+          cursor: 'pointer',
+          padding: '18px 20px',
+          fontSize: 22,
+          fontWeight: 700,
+          color: C.red2,
+          userSelect: 'none'
+        }}
+      >
+        {title}
+      </summary>
 
-const inputStyle={width:'100%',marginBottom:12,background:C.bg,color:C.text,border:`1px solid ${C.border2}`,borderRadius:12,padding:13,outline:'none',fontSize:15}
+      <div style={{ padding: 20 }}>
+        {children}
+      </div>
+    </details>
+  )
+}
 
-function OracleBox({data}){
-  const [input,setInput]=useState('')
-  const [reply,setReply]=useState('')
-  const [loading,setLoading]=useState(false)
+function OracleBox({ sessions }) {
+  const [input, setInput] = useState('')
+  const [reply, setReply] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  async function ask(){
-    if(!input.trim()||loading)return
-    setLoading(true);setReply('')
+  async function askOracle() {
+    if (!input.trim()) return
 
-    const ctx=`
+    setLoading(true)
+    setReply('')
+
+    const sessionContext = sessions
+      .map(
+        s =>
+          `- ${s.date || 'Data ignota'} | ${s.title}: ${s.summary || ''}`
+      )
+      .join('\n')
+
+    const context = `
 Sei l'Oracolo della campagna.
-Rispondi in italiano, tono oscuro, solenne, fantasy e utile.
+Parli in italiano con tono oscuro, evocativo e fantasy.
+Aiuti il Dungeon Master con idee, eventi, colpi di scena e conseguenze narrative.
 
 SESSIONI:
-${data.sessions.map(s=>`- ${s.date||'Data ignota'} | ${s.title}: ${s.summary||''}`).join('\n')||'Nessuna.'}
-
-PNG:
-${data.npcs.map(n=>`- ${n.name} (${n.role||'ruolo ignoto'}): ${n.attitude||''}. ${n.description||''}`).join('\n')||'Nessuno.'}
-
-FAZIONI:
-${data.factions.map(f=>`- ${f.name}: ${f.description||''}`).join('\n')||'Nessuna.'}
-
-LUOGHI:
-${data.locations.map(l=>`- ${l.name}: ${l.description||''}`).join('\n')||'Nessuno.'}
+${sessionContext || 'Nessuna sessione registrata.'}
 `
 
-    try{
-      const res=await fetch('/api/oracolo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({context:ctx,messages:[{role:'user',content:input}]})})
-      const out=await res.json()
-      setReply(out.reply||out.error||"L'Oracolo tace.")
-    }catch(e){setReply('Le nebbie del destino impediscono la risposta.')}
+    try {
+      const res = await fetch('/api/oracolo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          context,
+          message: input
+        })
+      })
+
+      const data = await res.json()
+
+      setReply(
+        data.reply ||
+          data.error ||
+          'L’oracolo non risponde.'
+      )
+    } catch {
+      setReply(
+        'Le nebbie del destino impediscono la visione...'
+      )
+    }
+
     setLoading(false)
   }
 
-  return <Card>
-    <h2 style={{color:C.red2,marginTop:0}}>🔮 Oracolo</h2>
-    <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder="Interroga l'Oracolo..." rows={5} style={{...inputStyle,resize:'vertical'}}/>
-    <button onClick={ask} disabled={loading||!input.trim()} style={{width:'100%',padding:13,borderRadius:12,border:'none',background:loading?C.bg3:C.red,color:'#fff',fontWeight:700}}>
-      {loading?"L'Oracolo scruta...":"Consulta l'Oracolo"}
-    </button>
-    {reply&&<div style={{marginTop:18,padding:16,background:C.bg3,border:`1px solid ${C.border}`,borderRadius:14,whiteSpace:'pre-wrap',lineHeight:1.7,fontStyle:'italic'}}>{reply}</div>}
-  </Card>
+  return (
+    <Card
+      style={{
+        background:
+          'radial-gradient(circle at top, rgba(209,75,61,.15), rgba(18,9,28,.95))'
+      }}
+    >
+      <div style={{ fontSize: 32 }}>🔮</div>
+
+      <h2
+        style={{
+          margin: '8px 0',
+          color: C.red2
+        }}
+      >
+        Oracolo
+      </h2>
+
+      <p
+        style={{
+          color: C.textDim,
+          fontSize: 14
+        }}
+      >
+        Interroga l’oracolo sulla campagna.
+      </p>
+
+      <textarea
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        placeholder="Chiedi qualcosa..."
+        rows={4}
+        style={{
+          width: '100%',
+          marginTop: 14,
+          background: C.bg,
+          border: `1px solid ${C.border2}`,
+          borderRadius: 12,
+          padding: 12,
+          color: C.text,
+          resize: 'vertical'
+        }}
+      />
+
+      <button
+        onClick={askOracle}
+        disabled={loading}
+        style={{
+          marginTop: 12,
+          width: '100%',
+          background: C.red,
+          border: 'none',
+          borderRadius: 12,
+          padding: 12,
+          color: '#fff',
+          fontWeight: 700,
+          cursor: 'pointer'
+        }}
+      >
+        {loading ? 'L’Oracolo osserva...' : 'Interroga'}
+      </button>
+
+      {reply && (
+        <div
+          style={{
+            marginTop: 18,
+            background: C.bg,
+            border: `1px solid ${C.border}`,
+            borderRadius: 14,
+            padding: 16,
+            whiteSpace: 'pre-wrap',
+            lineHeight: 1.7,
+            color: C.textDim,
+            fontStyle: 'italic'
+          }}
+        >
+          {reply}
+        </div>
+      )}
+    </Card>
+  )
 }
 
-export default function HomePage(){
-  const [tab,setTab]=useState('sessions')
-  const [data,setData]=useState({sessions:[],npcs:[],factions:[],locations:[]})
-  const [form,setForm]=useState({title:'',date:'',summary:'',name:'',role:'',attitude:'',description:''})
+export default function HomePage() {
+  const [sessions, setSessions] = useState([])
+  const [npcs, setNpcs] = useState([])
+  const [factions, setFactions] = useState([])
+  const [locations, setLocations] = useState([])
 
-  useEffect(()=>{loadAll()},[])
+  const [title, setTitle] = useState('')
+  const [date, setDate] = useState('')
+  const [summary, setSummary] = useState('')
 
-  async function loadAll(){
-    const [sessions,npcs,factions,locations]=await Promise.all([
-      supabase.from('sessions').select('*').order('created_at',{ascending:false}),
-      supabase.from('npcs').select('*').order('created_at',{ascending:false}),
-      supabase.from('factions').select('*').order('created_at',{ascending:false}),
-      supabase.from('locations').select('*').order('created_at',{ascending:false})
-    ])
-    setData({
-      sessions:sessions.data||[],
-      npcs:npcs.data||[],
-      factions:factions.data||[],
-      locations:locations.data||[]
+  useEffect(() => {
+    loadAll()
+  }, [])
+
+  async function loadAll() {
+    const s = await supabase.from('sessions').select('*').order('created_at', { ascending: false })
+    const n = await supabase.from('npcs').select('*')
+    const f = await supabase.from('factions').select('*')
+    const l = await supabase.from('locations').select('*')
+
+    setSessions(s.data || [])
+    setNpcs(n.data || [])
+    setFactions(f.data || [])
+    setLocations(l.data || [])
+  }
+
+  async function addSession() {
+    if (!title.trim()) return
+
+    await supabase.from('sessions').insert({
+      title,
+      date,
+      summary
     })
-  }
 
-  async function add(){
-    if(tab==='sessions'){
-      if(!form.title.trim())return
-      await supabase.from('sessions').insert([{title:form.title,date:form.date,summary:form.summary}])
-    }
-    if(tab==='npcs'){
-      if(!form.name.trim())return
-      await supabase.from('npcs').insert([{name:form.name,role:form.role,attitude:form.attitude,description:form.description}])
-    }
-    if(tab==='factions'){
-      if(!form.name.trim())return
-      await supabase.from('factions').insert([{name:form.name,description:form.description}])
-    }
-    if(tab==='locations'){
-      if(!form.name.trim())return
-      await supabase.from('locations').insert([{name:form.name,description:form.description}])
-    }
-    setForm({title:'',date:'',summary:'',name:'',role:'',attitude:'',description:''})
+    setTitle('')
+    setDate('')
+    setSummary('')
+
     loadAll()
   }
 
-  async function del(table,id){
-    await supabase.from(table).delete().eq('id',id)
-    loadAll()
-  }
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(circle at top, #13071d 0%, #08040f 60%)',
+        color: C.text,
+        padding: 24
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1050,
+          margin: '0 auto'
+        }}
+      >
+        <header
+          style={{
+            textAlign: 'center',
+            marginBottom: 30
+          }}
+        >
+          <div style={{ fontSize: 42 }}>⚔️</div>
 
-  const current=data[tab]||[]
+          <h1
+            style={{
+              fontSize: 46,
+              margin: 0,
+              letterSpacing: '.04em'
+            }}
+          >
+            Campagna
+          </h1>
 
-  return <main style={{minHeight:'100vh',background:`linear-gradient(180deg,${C.bg},#08060c)`,color:C.text,padding:24}}>
-    <div style={{maxWidth:1050,margin:'0 auto'}}>
-      <header style={{textAlign:'center',padding:'34px 0 24px'}}>
-        <div style={{fontSize:42}}>⚔️</div>
-        <h1 style={{fontSize:42,margin:0}}>Campagna</h1>
-        <p style={{color:C.textDim}}>Archivio digitale per sessioni, PNG, fazioni, luoghi e Oracolo.</p>
-      </header>
+          <p
+            style={{
+              color: C.textMuted,
+              marginTop: 10
+            }}
+          >
+            Archivio digitale per Dungeon Master
+          </p>
+        </header>
 
-      <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:22,flexWrap:'wrap'}}>
-        {tabs.map(([id,label])=><button key={id} onClick={()=>setTab(id)} style={{padding:'10px 18px',borderRadius:999,border:`1px solid ${tab===id?C.red2:C.border2}`,background:tab===id?C.red:C.bg2,color:'#fff',cursor:'pointer',fontWeight:700}}>{label}</button>)}
-      </div>
+        <Section title="📜 Sessioni" open>
+          <Card style={{ marginBottom: 18 }}>
+            <h3 style={{ color: C.red2 }}>Aggiungi Sessione</h3>
 
-      {tab==='oracle'?<OracleBox data={data}/>:<>
-        <Card>
-          <h2 style={{marginTop:0,color:C.red2}}>Aggiungi {tabs.find(t=>t[0]===tab)?.[1]}</h2>
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Titolo sessione"
+              style={inputStyle}
+            />
 
-          {tab==='sessions'?<>
-            <input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Titolo sessione" style={inputStyle}/>
-            <input value={form.date} onChange={e=>setForm({...form,date:e.target.value})} placeholder="Data o periodo" style={inputStyle}/>
-            <textarea value={form.summary} onChange={e=>setForm({...form,summary:e.target.value})} placeholder="Riassunto..." rows={6} style={{...inputStyle,resize:'vertical'}}/>
-          </>:<>
-            <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Nome" style={inputStyle}/>
-            {tab==='npcs'&&<>
-              <input value={form.role} onChange={e=>setForm({...form,role:e.target.value})} placeholder="Ruolo" style={inputStyle}/>
-              <input value={form.attitude} onChange={e=>setForm({...form,attitude:e.target.value})} placeholder="Atteggiamento: Alleato, Nemico, Neutrale..." style={inputStyle}/>
-            </>}
-            <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Descrizione..." rows={6} style={{...inputStyle,resize:'vertical'}}/>
-          </>}
+            <input
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              placeholder="Data"
+              style={inputStyle}
+            />
 
-          <button onClick={add} style={{width:'100%',padding:13,borderRadius:12,border:'none',background:C.red,color:'#fff',fontWeight:700,cursor:'pointer'}}>Salva</button>
-        </Card>
+            <textarea
+              value={summary}
+              onChange={e => setSummary(e.target.value)}
+              placeholder="Riassunto..."
+              rows={5}
+              style={inputStyle}
+            />
 
-        <div style={{height:16}}/>
+            <button
+              onClick={addSession}
+              style={buttonStyle}
+            >
+              Salva Sessione
+            </button>
+          </Card>
 
-        <Card>
-          <h2 style={{marginTop:0,color:C.red2}}>Archivio</h2>
-          {current.length===0&&<p style={{color:C.textDim,fontStyle:'italic'}}>Nessun elemento salvato.</p>}
-
-          <div style={{display:'grid',gap:12}}>
-            {current.map(item=><div key={item.id} style={{background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:14,padding:14}}>
-              <div style={{display:'flex',justifyContent:'space-between',gap:12}}>
-                <div>
-                  <h3 style={{margin:'0 0 4px'}}>{item.title||item.name}</h3>
-                  {item.date&&<div style={{fontSize:13,color:C.red2}}>{item.date}</div>}
-                  {item.role&&<div style={{fontSize:13,color:C.red2}}>{item.role} · {item.attitude}</div>}
-                </div>
-                <button onClick={()=>del(tab,item.id)} style={{background:'transparent',border:`1px solid ${C.border2}`,color:C.textDim,borderRadius:8,cursor:'pointer',padding:'6px 10px'}}>🗑️</button>
+          {sessions.map(s => (
+            <Card key={s.id} style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: C.red2
+                }}
+              >
+                {s.title}
               </div>
-              {(item.summary||item.description)&&<p style={{color:C.textDim,lineHeight:1.7,whiteSpace:'pre-wrap',marginBottom:0}}>{item.summary||item.description}</p>}
-            </div>)}
-          </div>
-        </Card>
-      </>}
 
-      <footer style={{textAlign:'center',color:C.textMuted,fontSize:12,padding:'32px 0 8px'}}>Creato per non perdere la lore nel Vuoto.</footer>
-    </div>
-  </main>
+              <div
+                style={{
+                  color: C.textMuted,
+                  marginTop: 4,
+                  marginBottom: 12
+                }}
+              >
+                {s.date}
+              </div>
+
+              <div
+                style={{
+                  lineHeight: 1.7,
+                  color: C.textDim
+                }}
+              >
+                {s.summary}
+              </div>
+            </Card>
+          ))}
+        </Section>
+
+        <Section title="👤 NPC">
+          {npcs.length === 0 ? (
+            <div style={{ color: C.textMuted }}>
+              Nessun NPC salvato.
+            </div>
+          ) : (
+            npcs.map(n => (
+              <Card key={n.id} style={{ marginBottom: 12 }}>
+                <div style={{ color: C.red2, fontSize: 20 }}>
+                  {n.name}
+                </div>
+
+                <div style={{ color: C.textDim }}>
+                  {n.description}
+                </div>
+              </Card>
+            ))
+          )}
+        </Section>
+
+        <Section title="🏰 Fazioni">
+          {factions.length === 0 ? (
+            <div style={{ color: C.textMuted }}>
+              Nessuna fazione salvata.
+            </div>
+          ) : (
+            factions.map(f => (
+              <Card key={f.id} style={{ marginBottom: 12 }}>
+                <div style={{ color: C.red2, fontSize: 20 }}>
+                  {f.name}
+                </div>
+
+                <div style={{ color: C.textDim }}>
+                  {f.description}
+                </div>
+              </Card>
+            ))
+          )}
+        </Section>
+
+        <Section title="🗺️ Location">
+          {locations.length === 0 ? (
+            <div style={{ color: C.textMuted }}>
+              Nessuna location salvata.
+            </div>
+          ) : (
+            locations.map(l => (
+              <Card key={l.id} style={{ marginBottom: 12 }}>
+                <div style={{ color: C.red2, fontSize: 20 }}>
+                  {l.name}
+                </div>
+
+                <div style={{ color: C.textDim }}>
+                  {l.description}
+                </div>
+              </Card>
+            ))
+          )}
+        </Section>
+
+        <Section title="🔮 Oracolo">
+          <OracleBox sessions={sessions} />
+        </Section>
+      </div>
+    </main>
+  )
+}
+
+const inputStyle = {
+  width: '100%',
+  marginBottom: 12,
+  background: C.bg,
+  border: `1px solid ${C.border2}`,
+  borderRadius: 12,
+  padding: 12,
+  color: C.text,
+  outline: 'none'
+}
+
+const buttonStyle = {
+  width: '100%',
+  background: C.red,
+  border: 'none',
+  borderRadius: 12,
+  padding: 12,
+  color: '#fff',
+  fontWeight: 700,
+  cursor: 'pointer'
 }
